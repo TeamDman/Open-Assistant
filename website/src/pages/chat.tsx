@@ -16,7 +16,7 @@ const Chat = () => {
   const chatID = createChatResponse?.id;
 
   const send = useCallback(async () => {
-    const message = inputRef.current.value;
+    const message = inputRef.current.value.trim();
 
     if (!message || !chatID) {
       return;
@@ -32,21 +32,11 @@ const Chat = () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ id: chatID, message }),
     });
-    const reader = body.pipeThrough(new TextDecoderStream()).getReader();
 
-    // eslint-disable-next-line no-constant-condition
-    let responseMessage = "",
-      done = false,
-      value = "";
-    while (!done) {
-      ({ value, done } = await reader.read());
-      if (done) {
-        break;
-      }
-      const object = JSON.parse(value.split("\n")[0].replace("data: ", ""));
-      const text = object.token.text;
+    let responseMessage = "";
+    for await (const { data } of iterator(body)) {
+      const text = JSON.parse(data).token.text;
       responseMessage += text;
-
       setActiveMessage(responseMessage);
       // wait for render
       await new Promise(requestAnimationFrame);
@@ -54,8 +44,6 @@ const Chat = () => {
 
     setMessages((old) => [...old, responseMessage]);
     setActiveMessage("");
-
-    // return sendMessage({ message });
   }, [chatID]);
 
   return (
@@ -97,6 +85,28 @@ const Entry = ({ children, isAssistant }) => {
     </Box>
   );
 };
+
+async function* iterator(stream: ReadableStream<Uint8Array>) {
+  const reader = stream.pipeThrough(new TextDecoderStream()).getReader();
+
+  let done = false,
+    value = "";
+  while (!done) {
+    ({ value, done } = await reader.read());
+    if (done) {
+      break;
+    }
+
+    const fields = value
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => {
+        const colonIdx = line.indexOf(":");
+        return [line.slice(0, colonIdx), line.slice(colonIdx + 1).trimStart()];
+      });
+    yield Object.fromEntries(fields);
+  }
+}
 
 Chat.getLayout = getDashboardLayout;
 
