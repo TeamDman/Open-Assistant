@@ -38,12 +38,12 @@ const Chat = () => {
       const text = JSON.parse(data).token.text;
       responseMessage += text;
       setActiveMessage(responseMessage);
-      // wait for render
+      // wait for re-render
       await new Promise(requestAnimationFrame);
     }
 
     setMessages((old) => [...old, responseMessage]);
-    setActiveMessage("");
+    setActiveMessage(null);
   }, [chatID]);
 
   return (
@@ -51,7 +51,7 @@ const Chat = () => {
       <Head>
         <meta name="description" content="Chat with Open Assistant and provide feedback." key="description" />
       </Head>
-      <Flex flexDir="column" gap={4}>
+      <Flex flexDir="column" gap={4} overflowY="auto">
         {!chatID && <Button onClick={() => createChat()}>Create Chat</Button>}
         {chatID && (
           <>
